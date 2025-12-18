@@ -1,19 +1,56 @@
 services:
-  # Web Service
+  # Main web service
   - type: web
-    name: ntandostore
-    env: node
-    plan: free
+    name: bot-hosting-platform
+    runtime: node
+    plan: starter
     buildCommand: "npm install"
     startCommand: "npm start"
-    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/database.sqlite
+    healthCheckPath: /api/health
     autoDeploy: true
+    disk:
+      name: bot-hosting-disk
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 10
+
+  # Background worker for bot management
+  - type: worker
+    name: bot-manager
+    runtime: node
+    plan: starter
+    buildCommand: "npm install"
+    startCommand: "node worker.js"
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        value: "ntandostore-production-secret-key-2024-please-change-this"
-    disk:
-      name: ntandostore-data
-      mountPath: /workspace
-      sizeGB: 1
+        sync: true
+    autoDeploy: true
+
+databases:
+  # PostgreSQL database (optional alternative to SQLite)
+  - name: bot-hosting-db
+    databaseName: bot_hosting
+    user: bot_hosting_user
+    plan: starter
+    ipAllowList: []
+
+# Global environment variables
+envVarGroups:
+  - name: production-secrets
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bot-hosting-db
+          property: connectionString

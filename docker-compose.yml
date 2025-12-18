@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_PATH=/app/database.sqlite
+      - JWT_SECRET=dev-secret-key-change-in-production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./database.sqlite:/app/database.sqlite
+      - ./backups:/app/backups
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - bot-hosting-network
+
+  # Background worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: node worker.js
+    environment:
+      - NODE_ENV=development
+      - DATABASE_PATH=/app/database.sqlite
+      - JWT_SECRET=dev-secret-key-change-in-production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./database.sqlite:/app/database.sqlite
+      - ./backups:/app/backups
+    depends_on:
+      - postgres
+      - app
+    restart: unless-stopped
+    networks:
+      - bot-hosting-network
+
+  # PostgreSQL database (alternative to SQLite)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=bot_hosting
+      - POSTGRES_USER=bot_hosting_user
+      - POSTGRES_PASSWORD=secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - bot-hosting-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - bot-hosting-network
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - bot-hosting-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  bot-hosting-network:
+    driver: bridge
