@@ -1,0 +1,19 @@
+services:
+  # Web Service
+  - type: web
+    name: ntandostore
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        value: "ntandostore-production-secret-key-2024-please-change-this"
+    disk:
+      name: ntandostore-data
+      mountPath: /workspace
+      sizeGB: 1
